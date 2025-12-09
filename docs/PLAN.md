@@ -187,11 +187,10 @@ Each iteration is a vertical slice that results in a reviewable, running system.
 - React Router now gates routes, redirects unauthenticated users, and shows loading/error states with Chakra toasts.
 - Base CI workflow runs `npm run lint` plus the auth integration test (once CI Postgres is available); structured logs capture login attempts.
 
-### Iteration 2 — Prompt Submission & History
-- Build `/prompts` REST endpoints with Prisma/Knex migrations for the `prompts` table.
-- UI already has the authenticated prompt form + history cards (currently mocked); wire it to the API so submissions persist and statuses reflect DB state.
-- Add a lightweight “title generation” service (can be deterministic or mocked) plus worker job metadata for Codex task IDs.
-- Seed prompt fixtures and add integration tests verifying persistence + history retrieval per user.
+### Iteration 2 — Prompt Submission & History ✅ Completed
+- Added a Knex migration + seed to persist prompt history with deterministic “random” starter prompts per user, plus repository helpers and integration tests.
+- Implemented `/prompts` REST endpoints (list, create, delete) with CSRF + auth guards and a deterministic title generator (simple truncation for now).
+- Wired the React dashboard to load prompts from the API, submit new ones, and delete entries; Chakra cards now reflect real DB state and show error/loading states.
 
 ### Iteration 3 — Codex Orchestration & Dynamic Bundling
 - Integrate the Codex SDK service that can start/resume threads, persist task metadata, and store returned JSX safely.

@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import path from 'node:path';
 import bcrypt from 'bcryptjs';
 import { db } from '../src/db';
 import {
@@ -8,13 +7,7 @@ import {
   findUserById,
   updateLastLogin
 } from '../src/repositories/userRepository';
-
-async function resetDatabase() {
-  const migrationsDir = path.resolve(__dirname, '../migrations');
-  const seedsDir = path.resolve(__dirname, '../seeds');
-  await db.migrate.latest({ directory: migrationsDir });
-  await db.seed.run({ directory: seedsDir });
-}
+import { resetDatabase } from './helpers';
 
 async function shouldFindSeedUser() {
   const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@example.com';

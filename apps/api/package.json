@@ -11,7 +11,7 @@
     "migrate:rollback": "knex --knexfile knexfile.cjs migrate:rollback",
     "seed:run": "knex --knexfile knexfile.cjs seed:run",
     "lint": "tsc --noEmit",
-    "test": "cross-env NODE_ENV=test ts-node --project tsconfig.json tests/userRepository.test.ts",
+    "test": "cross-env NODE_ENV=test ts-node --project tsconfig.json tests/userRepository.test.ts && cross-env NODE_ENV=test ts-node --project tsconfig.json tests/promptRepository.test.ts",
     "user:create": "ts-node --project tsconfig.json src/scripts/createUser.ts"
   },
   "dependencies": {

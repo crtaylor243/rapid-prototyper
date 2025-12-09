@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import path from 'path';
 import { config } from './config';
 import authRoutes from './routes/auth';
+import promptRoutes from './routes/prompts';
 import { logInfo } from './logger';
 
 const app = express();
@@ -26,6 +27,7 @@ app.get('/healthz', (_req, res) => {
 });
 
 app.use('/auth', authRoutes);
+app.use('/prompts', promptRoutes);
 
 const uiDistPath = path.join(__dirname, '../../ui/dist');
 app.use(express.static(uiDistPath));
