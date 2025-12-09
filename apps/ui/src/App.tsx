@@ -28,6 +28,7 @@ import {
   VStack,
   useToast
 } from '@chakra-ui/react';
+import { keyframes } from '@emotion/react';
 import * as Babel from '@babel/standalone';
 import React, {
   ComponentType,
@@ -724,12 +725,61 @@ const STATUS_META: Record<
 
 function PromptStatusBadge({ status }: { status: PromptStatus }) {
   const meta = STATUS_META[status];
+
+  if (status === 'building') {
+    return (
+      <Tooltip label="Codex + Babel are building this preview" hasArrow placement="top">
+        <Badge colorScheme="orange" px={2} py={1} borderRadius="md">
+          <HStack spacing={1} align="center">
+            <CodexGlyph animated />
+            <Text fontSize="xs">{meta.label}</Text>
+          </HStack>
+        </Badge>
+      </Tooltip>
+    );
+  }
+
   return (
     <Tooltip label={meta.description} hasArrow placement="top">
       <Badge colorScheme={meta.color} px={2} py={1} borderRadius="md">
         {meta.label}
       </Badge>
     </Tooltip>
+  );
+}
+
+const codexSpin = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+function CodexGlyph({ animated = false }: { animated?: boolean }) {
+  const petals = [0, 60, 120, 180, 240, 300];
+  return (
+    <Box
+      as="span"
+      position="relative"
+      w="18px"
+      h="18px"
+      display="inline-flex"
+      alignItems="center"
+      justifyContent="center"
+      animation={animated ? `${codexSpin} 1.4s linear infinite` : undefined}
+    >
+      {petals.map((deg) => (
+        <Box
+          key={deg}
+          position="absolute"
+          w="8px"
+          h="14px"
+          border="2px solid"
+          borderColor="purple.500"
+          borderRadius="10px"
+          opacity={0.8}
+          transform={`rotate(${deg}deg)`}
+        />
+      ))}
+    </Box>
   );
 }
 
@@ -1037,7 +1087,7 @@ function PromptPreviewModal({
   onClose: () => void;
   jsxSource: string | null;
   title: string;
-}) {
+  }) {
   return (
     <Modal size="6xl" isOpen={isOpen} onClose={onClose} isCentered>
       <ModalOverlay />
@@ -1046,7 +1096,9 @@ function PromptPreviewModal({
         <ModalCloseButton />
         <ModalBody minH="360px">
           {jsxSource ? (
-            <DynamicComponent code={jsxSource} />
+            <PreviewErrorBoundary>
+              <DynamicComponent code={jsxSource} />
+            </PreviewErrorBoundary>
           ) : (
             <Alert status="warning">
               <AlertIcon />
@@ -1060,6 +1112,34 @@ function PromptPreviewModal({
       </ModalContent>
     </Modal>
   );
+}
+
+class PreviewErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: string | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error: error.message };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[preview] runtime error', error);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <Alert status="error">
+          <AlertIcon />
+          {this.state.error}
+        </Alert>
+      );
+    }
+
+    return this.props.children as JSX.Element;
+  }
 }
 
 function DynamicComponent({ code }: { code: string }) {
@@ -1088,6 +1168,7 @@ function DynamicComponent({ code }: { code: string }) {
         'React',
         'useState',
         'useEffect',
+        'useMemo',
         'require',
         'module',
         'exports',
@@ -1098,6 +1179,7 @@ function DynamicComponent({ code }: { code: string }) {
         React,
         useState,
         useEffect,
+        useMemo,
         requireShim,
         moduleShim,
         moduleShim.exports

@@ -97,7 +97,6 @@ async function tick() {
   warnedAboutConfig = false;
 
   const prompts = await findPromptsAwaitingBuild(batchSize);
-  logInfo('Codex worker: poll tick', { found: prompts.length });
   if (prompts.length === 0) {
     return;
   }
