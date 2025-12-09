@@ -33,12 +33,18 @@ function buildSandboxConfig() {
 }
 
 async function processPrompt(prompt: Prompt) {
+  logInfo('Codex worker: picked prompt', {
+    promptId: prompt.id,
+    status: prompt.status
+  });
+
   await recordPromptEvent(prompt.id, 'info', 'Codex worker: processing prompt', {
     status: prompt.status
   });
 
   try {
     await markPromptBuilding(prompt.id);
+    logInfo('Codex worker: marked prompt building', { promptId: prompt.id });
     const { threadId, jsx } = await runPromptThroughCodex(prompt.prompt_text, prompt.codex_task_id);
     if (prompt.codex_task_id !== threadId) {
       await markPromptBuilding(prompt.id, threadId);
@@ -107,7 +113,13 @@ async function runLoop() {
   });
 
   while (true) {
-    await tick();
+    try {
+      await tick();
+    } catch (error) {
+      logError('Codex worker tick failed', {
+        error: error instanceof Error ? error.message : error
+      });
+    }
     await sleep(pollIntervalMs);
   }
 }

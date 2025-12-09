@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Center,
+  Code,
   Container,
   Divider,
   FormControl,
@@ -12,15 +13,25 @@ import {
   Heading,
   HStack,
   Input,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
   Spinner,
   Stack,
   Text,
   Textarea,
-  VStack,
   Tooltip,
+  VStack,
   useToast
 } from '@chakra-ui/react';
-import {
+import { keyframes } from '@emotion/react';
+import * as Babel from '@babel/standalone';
+import React, {
+  ComponentType,
   createContext,
   useCallback,
   useContext,
@@ -31,11 +42,13 @@ import {
 } from 'react';
 import {
   BrowserRouter,
+  Link as RouterLink,
   Navigate,
   Outlet,
   Route,
   Routes,
-  useNavigate
+  useNavigate,
+  useParams
 } from 'react-router-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
@@ -48,12 +61,30 @@ interface AuthenticatedUser {
 
 type PromptStatus = 'pending' | 'building' | 'ready' | 'failed';
 
+interface PromptEventSummary {
+  id: string;
+  level: 'info' | 'error';
+  message: string;
+  context: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 interface PromptSummary {
   id: string;
   title: string;
   promptText: string;
   status: PromptStatus;
   updatedAt: string;
+  previewSlug: string | null;
+  renderError: string | null;
+  events: PromptEventSummary[];
+}
+
+interface PromptDetail extends PromptSummary {
+  createdAt: string;
+  jsxSource: string | null;
+  compiledJs: string | null;
+  sandboxConfig: Record<string, unknown> | null;
 }
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
@@ -241,6 +272,35 @@ function useAuth() {
   return context;
 }
 
+function useLogoutAction() {
+  const { logout } = useAuth();
+  const toast = useToast();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = useCallback(async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      toast({
+        title: 'Signed out',
+        description: 'You have been logged out securely.',
+        status: 'info'
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to log out';
+      toast({
+        title: 'Logout failed',
+        description: message,
+        status: 'error'
+      });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }, [logout, toast]);
+
+  return { handleLogout, isLoggingOut };
+}
+
 function LoginPage() {
   const { login, status } = useAuth();
   const [email, setEmail] = useState('');
@@ -325,8 +385,8 @@ function LoginPage() {
 }
 
 function DashboardPage() {
-  const { user, logout, getCsrfToken, refreshCsrfToken } = useAuth();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { user, getCsrfToken, refreshCsrfToken } = useAuth();
+  const { handleLogout, isLoggingOut } = useLogoutAction();
   const [promptText, setPromptText] = useState('');
   const [isSubmittingPrompt, setIsSubmittingPrompt] = useState(false);
   const [prompts, setPrompts] = useState<PromptSummary[]>([]);
@@ -334,6 +394,7 @@ function DashboardPage() {
   const [promptLoadError, setPromptLoadError] = useState<string | null>(null);
   const [deletingPromptId, setDeletingPromptId] = useState<string | null>(null);
   const toast = useToast();
+  const navigate = useNavigate();
 
   const loadPrompts = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) {
@@ -386,12 +447,6 @@ function DashboardPage() {
       return;
     }
 
-    const hasActiveBuild =
-      prompts.some((prompt) => prompt.status === 'pending' || prompt.status === 'building');
-    if (!hasActiveBuild) {
-      return;
-    }
-
     const interval = window.setInterval(() => {
       loadPrompts({ silent: true });
     }, 5000);
@@ -399,28 +454,14 @@ function DashboardPage() {
     return () => {
       window.clearInterval(interval);
     };
-  }, [user, prompts, loadPrompts]);
+  }, [user, loadPrompts]);
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await logout();
-      toast({
-        title: 'Signed out',
-        description: 'You have been logged out securely.',
-        status: 'info'
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to log out';
-      toast({
-        title: 'Logout failed',
-        description: message,
-        status: 'error'
-      });
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
+  const handleViewPrompt = useCallback(
+    (promptId: string) => {
+      navigate(`/prompts/${promptId}`);
+    },
+    [navigate]
+  );
 
   const lastLoginText = user?.lastLoginAt
     ? new Date(user.lastLoginAt).toLocaleString()
@@ -599,6 +640,7 @@ function DashboardPage() {
                     prompt={prompt}
                     onDelete={handleDeletePrompt}
                     isDeleting={deletingPromptId === prompt.id}
+                    onView={handleViewPrompt}
                   />
                 ))
               )}
@@ -655,27 +697,146 @@ function AppHeader({
   );
 }
 
+const STATUS_META: Record<
+  PromptStatus,
+  { label: string; color: string; description: string }
+> = {
+  pending: {
+    label: 'Pending',
+    color: 'gray',
+    description: 'Queued for the Codex worker'
+  },
+  building: {
+    label: 'Building',
+    color: 'orange',
+    description: 'Codex + Babel are generating the preview'
+  },
+  ready: {
+    label: 'Ready',
+    color: 'green',
+    description: 'Preview artifacts stored and ready to view'
+  },
+  failed: {
+    label: 'Failed',
+    color: 'red',
+    description: 'Build failed — review logs for details'
+  }
+};
+
+function PromptStatusBadge({ status }: { status: PromptStatus }) {
+  const meta = STATUS_META[status];
+
+  if (status === 'building') {
+    return (
+      <Tooltip label="Codex + Babel are building this preview" hasArrow placement="top">
+        <Badge colorScheme="orange" px={2} py={1} borderRadius="md">
+          <HStack spacing={1} align="center">
+            <CodexGlyph animated />
+            <Text fontSize="xs">{meta.label}</Text>
+          </HStack>
+        </Badge>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Tooltip label={meta.description} hasArrow placement="top">
+      <Badge colorScheme={meta.color} px={2} py={1} borderRadius="md">
+        {meta.label}
+      </Badge>
+    </Tooltip>
+  );
+}
+
+const codexSpin = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+function CodexGlyph({ animated = false }: { animated?: boolean }) {
+  const petals = [0, 60, 120, 180, 240, 300];
+  return (
+    <Box
+      as="span"
+      position="relative"
+      w="18px"
+      h="18px"
+      display="inline-flex"
+      alignItems="center"
+      justifyContent="center"
+      animation={animated ? `${codexSpin} 1.4s linear infinite` : undefined}
+    >
+      {petals.map((deg) => (
+        <Box
+          key={deg}
+          position="absolute"
+          w="8px"
+          h="14px"
+          border="2px solid"
+          borderColor="purple.500"
+          borderRadius="10px"
+          opacity={0.8}
+          transform={`rotate(${deg}deg)`}
+        />
+      ))}
+    </Box>
+  );
+}
+
+function PromptEventList({
+  events,
+  emptyLabel
+}: {
+  events: PromptEventSummary[];
+  emptyLabel: string;
+}) {
+  if (!events || events.length === 0) {
+    return (
+      <Text fontSize="xs" color="gray.500">
+        {emptyLabel}
+      </Text>
+    );
+  }
+
+  return (
+    <Stack spacing={1}>
+      {events.map((event) => (
+        <HStack key={event.id} spacing={2} align="baseline">
+          <Badge
+            colorScheme={event.level === 'error' ? 'red' : 'purple'}
+            textTransform="uppercase"
+            fontSize="0.6rem"
+          >
+            {event.level.toUpperCase()}
+          </Badge>
+          <Text fontSize="xs" color="gray.600">
+            {new Date(event.createdAt).toLocaleTimeString()} — {event.message}
+          </Text>
+        </HStack>
+      ))}
+    </Stack>
+  );
+}
+
 function PromptCard({
   prompt,
   onDelete,
+  onView,
   isDeleting
 }: {
   prompt: PromptSummary;
   onDelete: (promptId: string) => Promise<void> | void;
+  onView: (promptId: string) => void;
   isDeleting: boolean;
 }) {
   const isReady = prompt.status === 'ready';
-  const badgeColor = {
-    pending: 'gray',
-    building: 'orange',
-    ready: 'green',
-    failed: 'red'
-  }[prompt.status];
-  const statusLabel = prompt.status.charAt(0).toUpperCase() + prompt.status.slice(1);
+  const previewTooltip = isReady
+    ? 'Open details and preview'
+    : 'View details; preview unlocks once the worker marks this prompt Ready';
 
   return (
     <Box borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm">
-      <Stack spacing={3}>
+      <Stack spacing={4}>
         <HStack justify="space-between" align="flex-start">
           <VStack spacing={0} align="flex-start">
             <Heading size="sm">{prompt.title}</Heading>
@@ -683,11 +844,21 @@ function PromptCard({
               Updated {new Date(prompt.updatedAt).toLocaleString()}
             </Text>
           </VStack>
-          <Badge colorScheme={badgeColor} px={2} py={1} borderRadius="md">
-            {statusLabel}
-          </Badge>
+          <PromptStatusBadge status={prompt.status} />
         </HStack>
         <Text color="gray.700">{prompt.promptText}</Text>
+        <Box borderWidth="1px" borderRadius="md" p={3} bg="gray.50">
+          <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="wide" mb={1}>
+            Codex activity
+          </Text>
+          <PromptEventList events={prompt.events} emptyLabel="Waiting for Codex worker updates…" />
+        </Box>
+        {prompt.renderError ? (
+          <Alert status="error" variant="left-accent">
+            <AlertIcon />
+            {prompt.renderError}
+          </Alert>
+        ) : null}
         <HStack justify="flex-end" spacing={2}>
           <Button
             variant="ghost"
@@ -699,18 +870,357 @@ function PromptCard({
           >
             Delete
           </Button>
-          <Tooltip
-            label="Preview & launch arrive in Iteration 4; Ready means the worker stored JSX artifacts."
-            hasArrow
-            shouldWrapChildren
-            placement="top"
-          >
-            <Button colorScheme="purple" size="sm" isDisabled pointerEvents="none">
-              Preview coming soon
+          <Tooltip label={previewTooltip} hasArrow shouldWrapChildren placement="top" isDisabled={isReady}>
+            <Button colorScheme="purple" size="sm" onClick={() => onView(prompt.id)}>
+              View
             </Button>
           </Tooltip>
         </HStack>
       </Stack>
+    </Box>
+  );
+}
+
+function PromptDetailPage() {
+  const { user } = useAuth();
+  const { handleLogout, isLoggingOut } = useLogoutAction();
+  const { promptId } = useParams<{ promptId?: string }>();
+  const [prompt, setPrompt] = useState<PromptDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadPrompt = useCallback(
+    async ({ silent = false }: { silent?: boolean } = {}) => {
+      if (!promptId) {
+        setError('Prompt not found');
+        setIsLoading(false);
+        return;
+      }
+
+      if (!silent) {
+        setIsLoading(true);
+      }
+      setError((current) => (silent ? current : null));
+      try {
+        const response = await fetch(`${API_BASE_URL}/prompts/${promptId}`, {
+          credentials: 'include'
+        });
+
+        if (response.status === 404) {
+          setPrompt(null);
+          setError('Prompt not found');
+          return;
+        }
+
+        if (!response.ok) {
+          let message = 'Unable to load prompt';
+          try {
+            const payload = await response.json();
+            message = payload.message ?? message;
+          } catch {
+            // ignore parse errors
+          }
+          throw new Error(message);
+        }
+
+        const payload = (await response.json()) as { prompt: PromptDetail };
+        setPrompt(payload.prompt);
+        setError(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unable to load prompt';
+        setError(message);
+      } finally {
+        if (!silent) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [promptId]
+  );
+
+  useEffect(() => {
+    loadPrompt();
+  }, [loadPrompt]);
+
+  useEffect(() => {
+    if (!promptId) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      loadPrompt({ silent: true });
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [promptId, loadPrompt]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await loadPrompt({ silent: true });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [loadPrompt]);
+
+  return (
+    <>
+      <AppHeader user={user} onLogout={handleLogout} isLoggingOut={isLoggingOut} />
+      <Container maxW="5xl" py={12}>
+        <Stack spacing={6}>
+          <HStack justify="space-between" align="center">
+            <Button variant="link" as={RouterLink} to="/" colorScheme="purple">
+              Back to history
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleRefresh} isLoading={isRefreshing}>
+              Refresh status
+            </Button>
+          </HStack>
+          {isLoading ? (
+            <Center py={12}>
+              <Spinner />
+            </Center>
+          ) : error ? (
+            <Alert status="error">
+              <AlertIcon />
+              {error}
+            </Alert>
+          ) : prompt ? (
+            <Stack spacing={6}>
+              <Box borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm">
+                <Stack spacing={4}>
+                  <HStack justify="space-between" align="flex-start">
+                    <Heading size="lg">{prompt.title}</Heading>
+                    <PromptStatusBadge status={prompt.status} />
+                  </HStack>
+                  <Text fontSize="sm" color="gray.500">
+                    Prompt ID: <Code>{prompt.id}</Code>
+                  </Text>
+                  <Text fontSize="sm" color="gray.500">
+                    Created {new Date(prompt.createdAt).toLocaleString()} · Updated{' '}
+                    {new Date(prompt.updatedAt).toLocaleString()}
+                  </Text>
+                  <Divider />
+                  <Stack spacing={2}>
+                    <Text fontSize="sm" color="gray.500" textTransform="uppercase" letterSpacing="wide">
+                      Prompt
+                    </Text>
+                    <Text color="gray.700">{prompt.promptText}</Text>
+                  </Stack>
+                  <Divider />
+                  <Stack spacing={1}>
+                    <Text fontSize="sm" color="gray.500" textTransform="uppercase" letterSpacing="wide">
+                      Preview slug
+                    </Text>
+                    <Code>{prompt.previewSlug ?? 'pending-assignment'}</Code>
+                  </Stack>
+                  {prompt.renderError ? (
+                    <Alert status="error" variant="left-accent">
+                      <AlertIcon />
+                      {prompt.renderError}
+                    </Alert>
+                  ) : null}
+                </Stack>
+              </Box>
+
+              <Box borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm">
+                <Stack spacing={3}>
+                  <Heading size="sm">Latest Codex events</Heading>
+                  <PromptEventList events={prompt.events} emptyLabel="No Codex activity recorded yet." />
+                </Stack>
+              </Box>
+
+              <Box borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm">
+                <PromptPreviewPanel prompt={prompt} />
+              </Box>
+            </Stack>
+          ) : null}
+        </Stack>
+      </Container>
+    </>
+  );
+}
+
+function PromptPreviewPanel({ prompt }: { prompt: PromptDetail }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const canLaunchPreview = prompt.status === 'ready' && !!prompt.jsxSource;
+  const helperText = canLaunchPreview
+    ? `Preview slug: ${prompt.previewSlug ?? 'not-set'}`
+    : 'Preview becomes available when Codex finishes building.';
+
+  return (
+    <>
+      <Stack spacing={3}>
+        <Heading size="sm">Preview & launch</Heading>
+        <Text fontSize="sm" color="gray.600">
+          Render Codex output in a modal sandbox without leaving the dashboard.
+        </Text>
+        <HStack spacing={4}>
+          <Button colorScheme="purple" onClick={() => setIsModalOpen(true)} isDisabled={!canLaunchPreview}>
+            Launch preview
+          </Button>
+          <Text fontSize="sm" color={canLaunchPreview ? 'gray.600' : 'gray.400'}>
+            {helperText}
+          </Text>
+        </HStack>
+      </Stack>
+      <PromptPreviewModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        jsxSource={prompt.jsxSource}
+        title={prompt.title}
+      />
+    </>
+  );
+}
+
+function PromptPreviewModal({
+  isOpen,
+  onClose,
+  jsxSource,
+  title
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  jsxSource: string | null;
+  title: string;
+  }) {
+  return (
+    <Modal size="6xl" isOpen={isOpen} onClose={onClose} isCentered>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>{title} preview</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody minH="360px">
+          {jsxSource ? (
+            <PreviewErrorBoundary>
+              <DynamicComponent code={jsxSource} />
+            </PreviewErrorBoundary>
+          ) : (
+            <Alert status="warning">
+              <AlertIcon />
+              JSX source is missing for this prompt.
+            </Alert>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button onClick={onClose}>Close</Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+}
+
+class PreviewErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: string | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error: error.message };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[preview] runtime error', error);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <Alert status="error">
+          <AlertIcon />
+          {this.state.error}
+        </Alert>
+      );
+    }
+
+    return this.props.children as JSX.Element;
+  }
+}
+
+function DynamicComponent({ code }: { code: string }) {
+  const [Component, setComponent] = useState<ComponentType | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    try {
+      const moduleShim = { exports: {} as Record<string, unknown> };
+      const requireShim = (name: string) => {
+        if (name === 'react') {
+          return React;
+        }
+        throw new Error(`Unsupported import: ${name}`);
+      };
+
+      const strippedImports = code.replace(/^import[^;]+;?/gm, '').trim();
+      const transformed = Babel.transform(strippedImports, {
+        presets: ['react'],
+        plugins: ['transform-modules-commonjs'],
+        filename: 'dynamic.jsx'
+      }).code;
+
+      const componentFactory = new Function(
+        'React',
+        'useState',
+        'useEffect',
+        'useMemo',
+        'require',
+        'module',
+        'exports',
+        `${transformed}; const candidate = typeof App !== 'undefined' ? App : (module?.exports?.default ?? module?.exports?.App ?? null); return candidate;`
+      );
+
+      const GeneratedComponent = componentFactory(
+        React,
+        useState,
+        useEffect,
+        useMemo,
+        requireShim,
+        moduleShim,
+        moduleShim.exports
+      );
+      if (!cancelled) {
+        setComponent(() => (GeneratedComponent as ComponentType | null) ?? (() => null));
+        setError(null);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to render preview';
+      if (!cancelled) {
+        setError(message);
+        setComponent(null);
+      }
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [code]);
+
+  if (error) {
+    return (
+      <Alert status="error">
+        <AlertIcon />
+        {error}
+      </Alert>
+    );
+  }
+
+  if (!Component) {
+    return (
+      <Center py={8}>
+        <Spinner />
+      </Center>
+    );
+  }
+
+  return (
+    <Box borderWidth="1px" borderRadius="md" p={4} bg="white">
+      <Component />
     </Box>
   );
 }
@@ -745,6 +1255,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/prompts/:promptId" element={<PromptDetailPage />} />
           </Route>
         </Routes>
       </AuthProvider>

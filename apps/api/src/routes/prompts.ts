@@ -1,10 +1,16 @@
 import { Router } from 'express';
 import { csrfGuard } from '../security';
 import { requireAuth } from '../middleware/requireAuth';
-import { createPrompt, deletePrompt, listPromptsForUser } from '../repositories/promptRepository';
+import {
+  createPrompt,
+  deletePrompt,
+  findPromptByIdForUser,
+  listPromptsForUser
+} from '../repositories/promptRepository';
 import { generatePromptTitle } from '../services/titleGenerator';
 import { logError, logInfo } from '../logger';
-import { Prompt } from '../types';
+import { Prompt, PromptEvent } from '../types';
+import { listPromptEvents, listPromptEventsForPrompts } from '../repositories/promptEventRepository';
 
 const router = Router();
 
@@ -16,9 +22,35 @@ interface PromptResponse {
   updatedAt: string;
   previewSlug: string | null;
   renderError: string | null;
+  events: PromptEventResponse[];
 }
 
-function serializePrompt(prompt: Prompt): PromptResponse {
+interface PromptEventResponse {
+  id: string;
+  level: PromptEvent['level'];
+  message: string;
+  context: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+interface PromptDetailResponse extends PromptResponse {
+  createdAt: string;
+  jsxSource: string | null;
+  compiledJs: string | null;
+  sandboxConfig: Record<string, unknown> | null;
+}
+
+function serializePromptEvent(event: PromptEvent): PromptEventResponse {
+  return {
+    id: event.id,
+    level: event.level,
+    message: event.message,
+    context: event.context,
+    createdAt: event.created_at.toISOString()
+  };
+}
+
+function serializePrompt(prompt: Prompt, events: PromptEvent[] = []): PromptResponse {
   return {
     id: prompt.id,
     title: prompt.title,
@@ -26,14 +58,28 @@ function serializePrompt(prompt: Prompt): PromptResponse {
     status: prompt.status,
     updatedAt: prompt.updated_at.toISOString(),
     previewSlug: prompt.preview_slug,
-    renderError: prompt.render_error
+    renderError: prompt.render_error,
+    events: events.map(serializePromptEvent)
+  };
+}
+
+function serializePromptDetail(prompt: Prompt, events: PromptEvent[]): PromptDetailResponse {
+  return {
+    ...serializePrompt(prompt, events),
+    createdAt: prompt.created_at.toISOString(),
+    jsxSource: prompt.jsx_source,
+    compiledJs: prompt.compiled_js,
+    sandboxConfig: prompt.sandbox_config
   };
 }
 
 router.get('/', requireAuth, async (req, res) => {
   try {
     const prompts = await listPromptsForUser(req.user!.id);
-    res.json({ prompts: prompts.map(serializePrompt) });
+    const promptEvents = await listPromptEventsForPrompts(prompts.map((prompt) => prompt.id));
+    res.json({
+      prompts: prompts.map((prompt) => serializePrompt(prompt, promptEvents.get(prompt.id) ?? []))
+    });
   } catch (error) {
     logError('Failed to list prompts', { error, userId: req.user!.id });
     res.status(500).json({ message: 'Unable to load prompt history' });
@@ -57,6 +103,23 @@ router.post('/', requireAuth, csrfGuard, async (req, res) => {
   } catch (error) {
     logError('Failed to create prompt', { error, userId: req.user!.id });
     res.status(500).json({ message: 'Unable to create prompt' });
+  }
+});
+
+router.get('/:promptId', requireAuth, async (req, res) => {
+  const { promptId } = req.params;
+
+  try {
+    const prompt = await findPromptByIdForUser(promptId, req.user!.id);
+    if (!prompt) {
+      return res.status(404).json({ message: 'Prompt not found' });
+    }
+
+    const events = await listPromptEvents(promptId, 20);
+    return res.json({ prompt: serializePromptDetail(prompt, events) });
+  } catch (error) {
+    logError('Failed to fetch prompt detail', { error, promptId, userId: req.user!.id });
+    return res.status(500).json({ message: 'Unable to load prompt' });
   }
 });
 
