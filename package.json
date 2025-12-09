@@ -1,0 +1,16 @@
+{
+  "name": "rapid-prototyper",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/ui"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/api",
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:ui": "npm run dev --workspace apps/ui",
+    "build": "npm run build --workspace apps/ui",
+    "db:init": "./scripts/db-init.sh",
+    "dev:stack": "./scripts/dev-stack.sh"
+  }
+}

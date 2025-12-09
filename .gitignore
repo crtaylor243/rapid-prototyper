@@ -1,2 +1,11 @@
 .env*
 !.env.sample
+node_modules
+dist
+coverage
+/apps/api/dist
+/apps/ui/dist
+/apps/ui/node_modules
+/apps/api/node_modules
+/apps/ui/.vite
+.logs/
