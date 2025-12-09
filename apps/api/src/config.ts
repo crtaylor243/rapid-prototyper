@@ -9,11 +9,17 @@ required.forEach((key) => {
   }
 });
 
+const env = process.env.NODE_ENV ?? 'development';
+const defaultDbUrl = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5433/rapid_prototype';
+const testDbUrl = process.env.TEST_DATABASE_URL ?? defaultDbUrl;
+
 export const config = {
-  env: process.env.NODE_ENV ?? 'development',
+  env,
   port: Number(process.env.PORT ?? 4000),
-  dbUrl: process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5433/rapid_prototype',
+  dbUrl: env === 'test' ? testDbUrl : defaultDbUrl,
   sessionSecret: process.env.SESSION_SECRET ?? 'dev-secret',
+  sessionCookieName: process.env.SESSION_COOKIE_NAME ?? 'rp_session',
+  csrfCookieName: process.env.CSRF_COOKIE_NAME ?? 'rp_csrf',
   corsOrigins: (process.env.CORS_ALLOWED_ORIGINS ?? 'http://localhost:5173')
     .split(',')
     .map((origin) => origin.trim())
