@@ -44,6 +44,12 @@ async function processPrompt(prompt: Prompt) {
       await markPromptBuilding(prompt.id, threadId);
     }
 
+    logInfo('Codex worker received JSX', {
+      promptId: prompt.id,
+      threadId,
+      jsx
+    });
+
     await recordPromptEvent(prompt.id, 'info', 'Codex worker: JSX received', {
       threadId
     });

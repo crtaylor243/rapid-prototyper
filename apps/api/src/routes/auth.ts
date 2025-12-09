@@ -9,17 +9,23 @@ import { csrfGuard, readSession } from '../security';
 
 const router = Router();
 
-const sessionCookieOptions = {
+const baseCookieOptions = {
   httpOnly: true,
   sameSite: 'lax' as const,
-  secure: config.env === 'production',
+  secure: config.env === 'production'
+};
+
+const sessionCookieOptions = {
+  ...baseCookieOptions,
   maxAge: 60 * 60 * 1000
 };
 
+const sessionCookieClearOptions = {
+  ...baseCookieOptions
+};
+
 const csrfCookieOptions = {
-  httpOnly: true,
-  sameSite: 'lax' as const,
-  secure: config.env === 'production',
+  ...baseCookieOptions,
   maxAge: 60 * 60 * 1000
 };
 
@@ -45,7 +51,7 @@ router.get('/session', async (req, res) => {
     const user = await findUserById(session.sub);
     if (!user) {
       logInfo('Session references unknown user', { userId: session.sub });
-      res.clearCookie(config.sessionCookieName, sessionCookieOptions);
+      res.clearCookie(config.sessionCookieName, sessionCookieClearOptions);
       return res.json({ user: null });
     }
 
@@ -100,7 +106,7 @@ router.post('/login', csrfGuard, async (req, res) => {
 router.post('/logout', csrfGuard, (req, res) => {
   const csrfToken = issueCsrfToken(res);
   res
-    .clearCookie(config.sessionCookieName, sessionCookieOptions)
+    .clearCookie(config.sessionCookieName, sessionCookieClearOptions)
     .json({ message: 'Logged out', csrfToken });
 });
 

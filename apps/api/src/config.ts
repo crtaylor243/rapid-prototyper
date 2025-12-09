@@ -1,6 +1,18 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import dotenv from 'dotenv';
 
-dotenv.config();
+function loadEnvFiles() {
+  const repoRoot = path.resolve(__dirname, '../../..');
+  const envPath = path.join(repoRoot, '.env');
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath, override: false });
+  } else {
+    dotenv.config();
+  }
+}
+
+loadEnvFiles();
 
 const required = ['DATABASE_URL', 'SESSION_SECRET'];
 required.forEach((key) => {
