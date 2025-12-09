@@ -41,6 +41,34 @@ Rapid Prototyper is a companion tool for design interviews that turns natural-la
 
 Use the seeded admin credentials from `.env` to sign in, submit a prompt, and watch the “Understanding Prototype” spinner until Codex returns a 4–5 word title and preview.
 
+## Backend Flow
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI
+    participant API
+    participant DB as Postgres
+    participant Worker
+    participant Codex
+    participant Babel
+
+    User->>UI: Describe prototype
+    UI->>API: POST /prompts (prompt text)
+    API->>DB: Persist prompt (status=pending, Codex title)
+    API-->>UI: Prompt summary
+    Worker->>DB: Poll pending prompts
+    Worker->>Codex: Start/resume thread with prompt text
+    Codex-->>Worker: Structured JSX + thread id
+    Worker->>Babel: Transpile JSX to sandboxed JS
+    Babel-->>Worker: Compiled bundle (+ sandbox config)
+    Worker->>DB: Update prompt (status=ready or failed) + events
+    UI->>API: GET /prompts (polling history)
+    API->>DB: Fetch prompts + latest events
+    DB-->>API: Prompt data
+    API-->>UI: Updated statuses & preview slug
+```
+
 ## Tech Stack
 - **Frontend:** React 18, Vite, Chakra UI, Emotion, Babel-in-browser preview runtime, TypeScript
 - **Backend:** Node.js, Express, Knex, PostgreSQL, session + CSRF protection, structured logging
