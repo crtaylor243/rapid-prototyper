@@ -9,7 +9,10 @@
     "start": "node dist/index.js",
     "migrate:latest": "knex --knexfile knexfile.cjs migrate:latest",
     "migrate:rollback": "knex --knexfile knexfile.cjs migrate:rollback",
-    "seed:run": "knex --knexfile knexfile.cjs seed:run"
+    "seed:run": "knex --knexfile knexfile.cjs seed:run",
+    "lint": "tsc --noEmit",
+    "test": "cross-env NODE_ENV=test ts-node --project tsconfig.json tests/userRepository.test.ts",
+    "user:create": "ts-node --project tsconfig.json src/scripts/createUser.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -29,8 +32,10 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.5",
-    "@types/node": "^20.11.30",
     "@types/morgan": "^1.9.6",
+    "@types/node": "^20.11.30",
+    "cross-env": "^7.0.3",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.4.2"
   }

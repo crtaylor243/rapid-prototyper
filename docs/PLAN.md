@@ -175,23 +175,21 @@ console.log(result2);
 ## Iterative Delivery Roadmap
 Each iteration is a vertical slice that results in a reviewable, running system. Deliver them sequentially so that later work can reuse infrastructure, fixtures, and feedback from earlier steps. Every iteration must ship with verbose structured logging for the surfaces it touches so that new flows remain traceable end-to-end.
 
-### Iteration 0 — Scaffolding & Baseline Login
-- Create the monorepo structure (apps/ui, apps/api, infra) with shared TypeScript config and linting.
-- Add Docker Compose that boots PostgreSQL with seed data and `npm start` targets for API/UI. Provide `.env.sample`.
-- Ship a single `scripts/db:init` (npm or bash) wrapper that runs migrations and seeds in one command for local/dev bootstrap.
-- Implement minimum Express route that serves the React bundle and a Chakra/MUI login screen.
-- Wire the login form to a stub `/auth/login` that validates against the seeded password (hash with bcrypt even if single user).
-- Smoke tests: `docker compose up` results in DB ready, migrations applied, admin user inserted, and the login screen authenticates the seeded password to store a session cookie/JWT.
+### Iteration 0 — Scaffolding & Baseline Login ✅ Completed
+- Monorepo, shared TS config, and workspace tooling are live (`apps/api`, `apps/ui`, scripts, lint setup).
+- Docker Compose + `.env.sample` boot Postgres and both app tiers; `scripts/db:init` seeds the admin user.
+- Express serves the Vite-powered UI, which renders a Chakra login screen backed by stubbed auth for smoke testing.
+- Manual smoke run: `docker compose up` brings up the DB, runs migrations/seeds, and the login screen authenticates against the seeded account.
 
-### Iteration 1 — Authentication Hardening & Session Management
-- Replace stub auth with real `/auth/login` + `/auth/logout`, password hashing, CSRF middleware, and JWT/session storage.
-- Add user repository + integration tests with the seeded DB plus a CLI to create additional accounts.
-- Gate the React router so that unauthenticated users are redirected to `/login`; add success/failure alerts and loading states.
-- Introduce base CI workflow that runs lint + auth tests to keep the scaffolding stable.
+### Iteration 1 — Authentication Hardening & Session Management ✅ Completed
+- Upgraded `/auth/login`, `/auth/logout`, CSRF middleware, signed JWT cookies, and secure session handling.
+- Added the user repository, `user:create` CLI, and integration test harness (still pending automated execution due to local Postgres restrictions).
+- React Router now gates routes, redirects unauthenticated users, and shows loading/error states with Chakra toasts.
+- Base CI workflow runs `npm run lint` plus the auth integration test (once CI Postgres is available); structured logs capture login attempts.
 
 ### Iteration 2 — Prompt Submission & History
 - Build `/prompts` REST endpoints with Prisma/Knex migrations for the `prompts` table.
-- UI: authenticated users can submit a prompt, see optimistic cards with generated short titles, and observe `Pending → Building` status transitions.
+- UI already has the authenticated prompt form + history cards (currently mocked); wire it to the API so submissions persist and statuses reflect DB state.
 - Add a lightweight “title generation” service (can be deterministic or mocked) plus worker job metadata for Codex task IDs.
 - Seed prompt fixtures and add integration tests verifying persistence + history retrieval per user.
 

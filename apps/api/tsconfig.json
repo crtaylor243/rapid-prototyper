@@ -4,5 +4,5 @@
     "moduleResolution": "node",
     "outDir": "dist"
   },
-  "include": ["src", "knexfile.ts", "migrations", "seeds"]
+  "include": ["src", "knexfile.ts", "migrations", "seeds", "tests"]
 }

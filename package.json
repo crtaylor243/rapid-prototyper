@@ -10,6 +10,8 @@
     "dev:api": "npm run dev --workspace apps/api",
     "dev:ui": "npm run dev --workspace apps/ui",
     "build": "npm run build --workspace apps/ui",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspace apps/api",
     "db:init": "./scripts/db-init.sh",
     "dev:stack": "./scripts/dev-stack.sh"
   }
