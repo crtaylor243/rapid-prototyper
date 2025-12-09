@@ -199,9 +199,10 @@ Each iteration is a vertical slice that results in a reviewable, running system.
 - README/.env guidance captures Codex/Babel secrets so local stacks can run the worker without exposing credentials.
 
 ### Iteration 4 — Preview & Launch Experience ✅ Completed
-- Prompt cards now show richer status badges, recent Codex events, and a working “View” CTA that activates when `status=ready`.
-- The UI ships with a detail route that renders Codex JSX via Babel standalone inside a sandboxed Chakra modal, alongside metadata and back/refresh controls.
-- Polling runs on both dashboard and detail views so cards and Codex Activity stay in sync with the worker without manual reloads.
+- Prompt cards show richer status badges (with animated Codex glyphs during builds), recent Codex events, and a “View” CTA that links into details regardless of status.
+- The UI includes a detail route that renders Codex JSX via Babel standalone inside a sandboxed Chakra modal, with an error boundary to catch runtime issues.
+- Polling runs on dashboard and detail views so cards and Codex Activity stay in sync with the worker without manual reloads.
+- Worker loop is hardened to survive tick errors; preview rendering now supports common React hooks (e.g., `useMemo`).
 
 ### Iteration 5 — Operations, Observability & AI Assist
 - Instrument API and worker logs/metrics (e.g., OpenTelemetry exporters) plus alerting hooks for failed builds.
