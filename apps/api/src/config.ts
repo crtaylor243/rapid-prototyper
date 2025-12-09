@@ -44,6 +44,7 @@ export const config = {
   openAiApiKey: process.env.OPENAI_API_KEY ?? '',
   codexOrg: process.env.CODEX_ORG ?? '',
   codexSystemPrompt: process.env.CODEX_SYSTEM_PROMPT ?? defaultSystemPrompt,
+  codexTitleModel: process.env.CODEX_TITLE_MODEL ?? 'o4-mini',
   worker: {
     pollIntervalMs: Number(process.env.CODEX_WORKER_POLL_MS ?? 5000),
     batchSize: Number(process.env.CODEX_WORKER_BATCH_SIZE ?? 2)

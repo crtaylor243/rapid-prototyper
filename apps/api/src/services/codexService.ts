@@ -1,7 +1,6 @@
-import type { Codex, Thread } from '@openai/codex-sdk';
+import type { Thread } from '@openai/codex-sdk';
 import { config } from '../config';
-
-let codexClient: Codex | null = null;
+import { getCodexClient } from './codexClient';
 
 const codexOutputSchema = {
   type: 'object',
@@ -16,34 +15,6 @@ const codexOutputSchema = {
   additionalProperties: false
 } as const;
 
-async function loadCodexModule() {
-  const dynamicImport = new Function('specifier', 'return import(specifier);') as (
-    specifier: string
-  ) => Promise<typeof import('@openai/codex-sdk')>;
-  return dynamicImport('@openai/codex-sdk');
-}
-
-async function getClient(): Promise<Codex> {
-  if (!config.openAiApiKey) {
-    throw new Error('Codex SDK is not configured. Set OPENAI_API_KEY.');
-  }
-
-  if (!codexClient) {
-    const options: { apiKey: string; env?: Record<string, string> } = {
-      apiKey: config.openAiApiKey
-    };
-
-    if (config.codexOrg) {
-      options.env = { CODEX_ORG: config.codexOrg };
-    }
-
-    const { Codex: CodexConstructor } = await loadCodexModule();
-    codexClient = new CodexConstructor(options);
-  }
-
-  return codexClient;
-}
-
 function buildPrompt(userPrompt: string): string {
   const trimmed = userPrompt.trim();
   const normalizedUserPrompt = trimmed.length > 0 ? trimmed : 'Build a minimal placeholder component.';
@@ -53,7 +24,7 @@ User prompt:\n${normalizedUserPrompt}`;
 }
 
 async function threadForId(threadId?: string | null): Promise<Thread> {
-  const client = await getClient();
+  const client = await getCodexClient();
   if (threadId) {
     return client.resumeThread(threadId);
   }
@@ -62,10 +33,6 @@ async function threadForId(threadId?: string | null): Promise<Thread> {
 
 function normalizeResponse(response: string): string {
   return response.trim();
-}
-
-export function isCodexConfigured(): boolean {
-  return Boolean(config.openAiApiKey);
 }
 
 export async function runPromptThroughCodex(promptText: string, threadId?: string | null) {
@@ -127,3 +94,5 @@ function extractCodeFromResponse(response: string): string {
 
   return response.trim();
 }
+
+export { isCodexConfigured } from './codexClient';
