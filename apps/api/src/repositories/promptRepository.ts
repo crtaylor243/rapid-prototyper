@@ -14,6 +14,10 @@ export async function listPromptsForUser(userId: string): Promise<Prompt[]> {
   return db<Prompt>('prompts').where({ user_id: userId }).orderBy('updated_at', 'desc');
 }
 
+export async function findPromptByIdForUser(promptId: string, userId: string): Promise<Prompt | undefined> {
+  return db<Prompt>('prompts').where({ id: promptId, user_id: userId }).first();
+}
+
 export async function createPrompt(params: CreatePromptParams): Promise<Prompt> {
   const [prompt] = await db<Prompt>('prompts')
     .insert({

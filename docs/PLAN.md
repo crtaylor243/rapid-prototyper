@@ -198,12 +198,10 @@ Each iteration is a vertical slice that results in a reviewable, running system.
 - Prompt events and logs record build progress/failures, giving enough telemetry to debug Codex runs even without a UI preview surface yet.
 - README/.env guidance captures Codex/Babel secrets so local stacks can run the worker without exposing credentials.
 
-### Iteration 4 — Preview & Launch Experience (Not started)
-- Status: Deferred until we prioritize preview/launch UX again; Ready badges currently indicate stored JSX artifacts only.
-- Enhance the prompt cards with progress badges, Codex logs, and actionable “View” buttons once `status=ready`.
-- Add Babel standalone compilation in the UI to render returned React components safely in a sandboxed iframe/modal.
-- Provide a detail view with the preview, prompt summary, generated title, timestamps, and a “Back to history” CTA.
-- Add polling/WebSocket updates so cards move from Pending → Ready automatically; disable Launch until previews exist.
+### Iteration 4 — Preview & Launch Experience ✅ Completed
+- Prompt cards now show richer status badges, recent Codex events, and a working “View” CTA that activates when `status=ready`.
+- The UI ships with a detail route that renders Codex JSX via Babel standalone inside a sandboxed Chakra modal, alongside metadata and back/refresh controls.
+- Polling runs on both dashboard and detail views so cards and Codex Activity stay in sync with the worker without manual reloads.
 
 ### Iteration 5 — Operations, Observability & AI Assist
 - Instrument API and worker logs/metrics (e.g., OpenTelemetry exporters) plus alerting hooks for failed builds.
