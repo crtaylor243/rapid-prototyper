@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LOG_DIR="${ROOT_DIR}/.logs"
+API_LOG="${LOG_DIR}/api.log"
+UI_LOG="${LOG_DIR}/ui.log"
+
+mkdir -p "${LOG_DIR}"
+truncate -s 0 "${API_LOG}"
+truncate -s 0 "${UI_LOG}"
+
+cd "${ROOT_DIR}"
+
+echo "[dev-stack] Running database migrations and seeds..."
+npm run db:init
+
+cleanup() {
+  echo
+  echo "[dev-stack] Shutting down..."
+  if [[ -n "${API_PID:-}" ]]; then
+    kill "${API_PID}" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "${UI_PID:-}" ]]; then
+    kill "${UI_PID}" >/dev/null 2>&1 || true
+  fi
+  wait "${API_PID:-}" "${UI_PID:-}" >/dev/null 2>&1 || true
+}
+trap cleanup INT TERM
+
+prefix_and_tee() {
+  local label="$1"
+  local log_file="$2"
+  shift 2
+
+  "$@" 2>&1 | while IFS= read -r line || [[ -n "$line" ]]; do
+    printf '[%s] %s\n' "${label}" "${line}"
+  done | tee -a "${log_file}" &
+
+  echo $!
+}
+
+echo "[dev-stack] Starting API server..."
+prefix_and_tee api "${API_LOG}" npm run dev:api &
+API_PID=$!
+
+echo "[dev-stack] Starting UI dev server..."
+prefix_and_tee ui "${UI_LOG}" npm run dev:ui &
+UI_PID=$!
+
+echo "[dev-stack] Logs are being tailed and saved to ${LOG_DIR}"
+echo "[dev-stack] API ⇒ http://localhost:4000"
+echo "[dev-stack] UI  ⇒ http://localhost:5173"
+echo "[dev-stack] Press Ctrl+C to stop both servers."
+
+wait "${API_PID}" "${UI_PID}"
