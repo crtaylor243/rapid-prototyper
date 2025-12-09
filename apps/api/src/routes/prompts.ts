@@ -14,6 +14,8 @@ interface PromptResponse {
   promptText: string;
   status: Prompt['status'];
   updatedAt: string;
+  previewSlug: string | null;
+  renderError: string | null;
 }
 
 function serializePrompt(prompt: Prompt): PromptResponse {
@@ -22,7 +24,9 @@ function serializePrompt(prompt: Prompt): PromptResponse {
     title: prompt.title,
     promptText: prompt.prompt_text,
     status: prompt.status,
-    updatedAt: prompt.updated_at.toISOString()
+    updatedAt: prompt.updated_at.toISOString(),
+    previewSlug: prompt.preview_slug,
+    renderError: prompt.render_error
   };
 }
 

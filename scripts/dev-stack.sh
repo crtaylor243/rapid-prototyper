@@ -5,10 +5,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_DIR="${ROOT_DIR}/.logs"
 API_LOG="${LOG_DIR}/api.log"
 UI_LOG="${LOG_DIR}/ui.log"
+WORKER_LOG="${LOG_DIR}/worker.log"
 
 mkdir -p "${LOG_DIR}"
 truncate -s 0 "${API_LOG}"
 truncate -s 0 "${UI_LOG}"
+truncate -s 0 "${WORKER_LOG}"
 
 cd "${ROOT_DIR}"
 
@@ -24,7 +26,10 @@ cleanup() {
   if [[ -n "${UI_PID:-}" ]]; then
     kill "${UI_PID}" >/dev/null 2>&1 || true
   fi
-  wait "${API_PID:-}" "${UI_PID:-}" >/dev/null 2>&1 || true
+  if [[ -n "${WORKER_PID:-}" ]]; then
+    kill "${WORKER_PID}" >/dev/null 2>&1 || true
+  fi
+  wait "${API_PID:-}" "${UI_PID:-}" "${WORKER_PID:-}" >/dev/null 2>&1 || true
 }
 trap cleanup INT TERM
 
@@ -51,9 +56,13 @@ prefix_and_tee api "${API_LOG}" API_PID npm run dev:api
 echo "[dev-stack] Starting UI dev server..."
 prefix_and_tee ui "${UI_LOG}" UI_PID npm run dev:ui
 
+echo "[dev-stack] Starting Codex worker..."
+prefix_and_tee worker "${WORKER_LOG}" WORKER_PID npm run dev:worker
+
 echo "[dev-stack] Logs are being tailed and saved to ${LOG_DIR}"
 echo "[dev-stack] API ⇒ http://localhost:4000"
 echo "[dev-stack] UI  ⇒ http://localhost:5173"
-echo "[dev-stack] Press Ctrl+C to stop both servers."
+echo "[dev-stack] Worker logs ⇒ ${WORKER_LOG}"
+echo "[dev-stack] Press Ctrl+C to stop all services."
 
-wait "${API_PID}" "${UI_PID}"
+wait "${API_PID}" "${UI_PID}" "${WORKER_PID}"

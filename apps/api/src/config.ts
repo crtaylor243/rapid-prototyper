@@ -12,6 +12,9 @@ required.forEach((key) => {
 const env = process.env.NODE_ENV ?? 'development';
 const defaultDbUrl = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5433/rapid_prototype';
 const testDbUrl = process.env.TEST_DATABASE_URL ?? defaultDbUrl;
+const defaultSystemPrompt = `You are an expert React engineer helping designers instantly prototype UI ideas.
+Create a complete, self-contained React component named App. Avoid patches or diffs.
+Only output runnable React code with necessary imports.`;
 
 export const config = {
   env,
@@ -25,5 +28,12 @@ export const config = {
     .map((origin) => origin.trim())
     .filter(Boolean),
   adminEmail: process.env.ADMIN_EMAIL ?? 'admin@example.com',
-  adminPassword: process.env.ADMIN_PASSWORD ?? 'changeme'
+  adminPassword: process.env.ADMIN_PASSWORD ?? 'changeme',
+  openAiApiKey: process.env.OPENAI_API_KEY ?? '',
+  codexOrg: process.env.CODEX_ORG ?? '',
+  codexSystemPrompt: process.env.CODEX_SYSTEM_PROMPT ?? defaultSystemPrompt,
+  worker: {
+    pollIntervalMs: Number(process.env.CODEX_WORKER_POLL_MS ?? 5000),
+    batchSize: Number(process.env.CODEX_WORKER_BATCH_SIZE ?? 2)
+  }
 };
