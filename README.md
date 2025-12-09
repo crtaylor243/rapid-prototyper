@@ -69,6 +69,9 @@ sequenceDiagram
     API-->>UI: Updated statuses & preview slug
 ```
 
+[Codex Integration Details](./docs/codex.md)
+
+
 ## Tech Stack
 - **Frontend:** React 18, Vite, Chakra UI, Emotion, Babel-in-browser preview runtime, TypeScript
 - **Backend:** Node.js, Express, Knex, PostgreSQL, session + CSRF protection, structured logging
