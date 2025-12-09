@@ -17,6 +17,7 @@ import {
   Text,
   Textarea,
   VStack,
+  Tooltip,
   useToast
 } from '@chakra-ui/react';
 import {
@@ -334,9 +335,11 @@ function DashboardPage() {
   const [deletingPromptId, setDeletingPromptId] = useState<string | null>(null);
   const toast = useToast();
 
-  const loadPrompts = useCallback(async () => {
-    setIsLoadingPrompts(true);
-    setPromptLoadError(null);
+  const loadPrompts = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setIsLoadingPrompts(true);
+      setPromptLoadError(null);
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/prompts`, {
         credentials: 'include'
@@ -356,9 +359,15 @@ function DashboardPage() {
       setPrompts(payload.prompts);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to load prompt history';
-      setPromptLoadError(message);
+      if (!silent) {
+        setPromptLoadError(message);
+      } else {
+        console.warn('[prompts] background refresh failed', message);
+      }
     } finally {
-      setIsLoadingPrompts(false);
+      if (!silent) {
+        setIsLoadingPrompts(false);
+      }
     }
   }, []);
 
@@ -371,6 +380,26 @@ function DashboardPage() {
     }
     loadPrompts();
   }, [user, loadPrompts]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const hasActiveBuild =
+      prompts.some((prompt) => prompt.status === 'pending' || prompt.status === 'building');
+    if (!hasActiveBuild) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      loadPrompts({ silent: true });
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [user, prompts, loadPrompts]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -670,9 +699,16 @@ function PromptCard({
           >
             Delete
           </Button>
-          <Button colorScheme="purple" size="sm" isDisabled={!isReady}>
-            View
-          </Button>
+          <Tooltip
+            label="Preview & launch arrive in Iteration 4; Ready means the worker stored JSX artifacts."
+            hasArrow
+            shouldWrapChildren
+            placement="top"
+          >
+            <Button colorScheme="purple" size="sm" isDisabled pointerEvents="none">
+              Preview coming soon
+            </Button>
+          </Tooltip>
         </HStack>
       </Stack>
     </Box>
