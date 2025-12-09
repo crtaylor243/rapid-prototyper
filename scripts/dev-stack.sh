@@ -31,22 +31,25 @@ trap cleanup INT TERM
 prefix_and_tee() {
   local label="$1"
   local log_file="$2"
-  shift 2
+  local pid_var="$3"
+  shift 3
 
-  "$@" 2>&1 | while IFS= read -r line || [[ -n "$line" ]]; do
-    printf '[%s] %s\n' "${label}" "${line}"
-  done | tee -a "${log_file}" &
+  (
+    set -o pipefail
+    "$@" 2>&1 | while IFS= read -r line || [[ -n "$line" ]]; do
+      printf '[%s] %s\n' "${label}" "${line}"
+    done | tee -a "${log_file}"
+  ) &
 
-  echo $!
+  local pid=$!
+  printf -v "${pid_var}" '%s' "${pid}"
 }
 
 echo "[dev-stack] Starting API server..."
-prefix_and_tee api "${API_LOG}" npm run dev:api &
-API_PID=$!
+prefix_and_tee api "${API_LOG}" API_PID npm run dev:api
 
 echo "[dev-stack] Starting UI dev server..."
-prefix_and_tee ui "${UI_LOG}" npm run dev:ui &
-UI_PID=$!
+prefix_and_tee ui "${UI_LOG}" UI_PID npm run dev:ui
 
 echo "[dev-stack] Logs are being tailed and saved to ${LOG_DIR}"
 echo "[dev-stack] API ⇒ http://localhost:4000"

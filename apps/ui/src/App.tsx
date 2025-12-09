@@ -45,12 +45,12 @@ interface AuthenticatedUser {
   lastLoginAt: string | null;
 }
 
-type PromptStatus = 'Pending' | 'Building' | 'Ready' | 'Failed';
+type PromptStatus = 'pending' | 'building' | 'ready' | 'failed';
 
 interface PromptSummary {
   id: string;
   title: string;
-  prompt: string;
+  promptText: string;
   status: PromptStatus;
   updatedAt: string;
 }
@@ -63,6 +63,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  getCsrfToken: () => Promise<string>;
+  refreshCsrfToken: () => Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -216,9 +218,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
       user,
       login,
       logout,
-      refreshSession
+      refreshSession,
+      getCsrfToken: ensureCsrfToken,
+      refreshCsrfToken
     }),
-    [status, user, login, logout, refreshSession]
+    [status, user, login, logout, refreshSession, ensureCsrfToken, refreshCsrfToken]
   );
 
   if (!isBootstrapped) {
@@ -320,34 +324,53 @@ function LoginPage() {
 }
 
 function DashboardPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, getCsrfToken, refreshCsrfToken } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [promptText, setPromptText] = useState('');
   const [isSubmittingPrompt, setIsSubmittingPrompt] = useState(false);
-  const [prompts, setPrompts] = useState<PromptSummary[]>(() => [
-    {
-      id: '3',
-      title: 'Landing hero',
-      prompt: 'Create a hero layout for a marketing page',
-      status: 'Ready',
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60).toISOString()
-    },
-    {
-      id: '2',
-      title: 'Pricing cards',
-      prompt: 'Generate a pricing section with three tiers',
-      status: 'Building',
-      updatedAt: new Date(Date.now() - 1000 * 60 * 5).toISOString()
-    },
-    {
-      id: '1',
-      title: 'Auth modal',
-      prompt: 'Design an authentication modal with OAuth buttons',
-      status: 'Pending',
-      updatedAt: new Date(Date.now() - 1000 * 60 * 2).toISOString()
-    }
-  ]);
+  const [prompts, setPrompts] = useState<PromptSummary[]>([]);
+  const [isLoadingPrompts, setIsLoadingPrompts] = useState(true);
+  const [promptLoadError, setPromptLoadError] = useState<string | null>(null);
+  const [deletingPromptId, setDeletingPromptId] = useState<string | null>(null);
   const toast = useToast();
+
+  const loadPrompts = useCallback(async () => {
+    setIsLoadingPrompts(true);
+    setPromptLoadError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/prompts`, {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        let message = 'Unable to load prompt history';
+        try {
+          const payload = await response.json();
+          message = payload.message ?? message;
+        } catch {
+          // ignore decoder errors
+        }
+        throw new Error(message);
+      }
+
+      const payload = (await response.json()) as { prompts: PromptSummary[] };
+      setPrompts(payload.prompts);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to load prompt history';
+      setPromptLoadError(message);
+    } finally {
+      setIsLoadingPrompts(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setPrompts([]);
+      setPromptLoadError(null);
+      setIsLoadingPrompts(false);
+      return;
+    }
+    loadPrompts();
+  }, [user, loadPrompts]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -375,7 +398,7 @@ function DashboardPage() {
     : 'First login pending';
 
   const sortedPrompts = useMemo(
-    () => [...prompts].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)),
+    () => [...prompts].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
     [prompts]
   );
 
@@ -387,22 +410,91 @@ function DashboardPage() {
 
     setIsSubmittingPrompt(true);
     try {
-      const newPrompt: PromptSummary = {
-        id: crypto.randomUUID?.() ?? String(Date.now()),
-        title: promptText.slice(0, 32) || 'Untitled prompt',
-        prompt: promptText,
-        status: 'Pending',
-        updatedAt: new Date().toISOString()
-      };
-      setPrompts((current) => [newPrompt, ...current]);
+      const csrf = await getCsrfToken();
+      const response = await fetch(`${API_BASE_URL}/prompts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrf
+        },
+        credentials: 'include',
+        body: JSON.stringify({ promptText })
+      });
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          await refreshCsrfToken().catch(() => undefined);
+        }
+        let message = 'Unable to submit prompt';
+        try {
+          const payload = await response.json();
+          message = payload.message ?? message;
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(message);
+      }
+
+      const payload = (await response.json()) as { prompt: PromptSummary };
+      setPrompts((current) => [payload.prompt, ...current]);
       setPromptText('');
       toast({
         title: 'Prompt submitted',
         description: 'Status will update automatically.',
         status: 'info'
       });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to submit prompt';
+      toast({
+        title: 'Prompt submission failed',
+        description: message,
+        status: 'error'
+      });
     } finally {
       setIsSubmittingPrompt(false);
+    }
+  };
+
+  const handleDeletePrompt = async (promptId: string) => {
+    setDeletingPromptId(promptId);
+    try {
+      const csrf = await getCsrfToken();
+      const response = await fetch(`${API_BASE_URL}/prompts/${promptId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-csrf-token': csrf
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          await refreshCsrfToken().catch(() => undefined);
+        }
+        let message = 'Unable to delete prompt';
+        try {
+          const payload = await response.json();
+          message = payload.message ?? message;
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(message);
+      }
+
+      setPrompts((current) => current.filter((prompt) => prompt.id !== promptId));
+      toast({
+        title: 'Prompt deleted',
+        status: 'success'
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to delete prompt';
+      toast({
+        title: 'Delete failed',
+        description: message,
+        status: 'error'
+      });
+    } finally {
+      setDeletingPromptId(null);
     }
   };
 
@@ -457,12 +549,29 @@ function DashboardPage() {
             </HStack>
             <Divider />
             <VStack spacing={4} align="stretch">
-              {sortedPrompts.length === 0 ? (
+              {promptLoadError ? (
+                <Alert status="error">
+                  <AlertIcon />
+                  {promptLoadError}
+                </Alert>
+              ) : null}
+              {isLoadingPrompts ? (
+                <Center py={8}>
+                  <Spinner />
+                </Center>
+              ) : sortedPrompts.length === 0 ? (
                 <Box borderWidth="1px" borderRadius="md" p={6} textAlign="center" color="gray.500">
                   No prompts yet. Describe your prototype to get started.
                 </Box>
               ) : (
-                sortedPrompts.map((prompt) => <PromptCard key={prompt.id} prompt={prompt} />)
+                sortedPrompts.map((prompt) => (
+                  <PromptCard
+                    key={prompt.id}
+                    prompt={prompt}
+                    onDelete={handleDeletePrompt}
+                    isDeleting={deletingPromptId === prompt.id}
+                  />
+                ))
               )}
             </VStack>
           </Stack>
@@ -517,14 +626,23 @@ function AppHeader({
   );
 }
 
-function PromptCard({ prompt }: { prompt: PromptSummary }) {
-  const isReady = prompt.status === 'Ready';
+function PromptCard({
+  prompt,
+  onDelete,
+  isDeleting
+}: {
+  prompt: PromptSummary;
+  onDelete: (promptId: string) => Promise<void> | void;
+  isDeleting: boolean;
+}) {
+  const isReady = prompt.status === 'ready';
   const badgeColor = {
-    Pending: 'gray',
-    Building: 'orange',
-    Ready: 'green',
-    Failed: 'red'
+    pending: 'gray',
+    building: 'orange',
+    ready: 'green',
+    failed: 'red'
   }[prompt.status];
+  const statusLabel = prompt.status.charAt(0).toUpperCase() + prompt.status.slice(1);
 
   return (
     <Box borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm">
@@ -536,12 +654,22 @@ function PromptCard({ prompt }: { prompt: PromptSummary }) {
               Updated {new Date(prompt.updatedAt).toLocaleString()}
             </Text>
           </VStack>
-          <Badge colorScheme={badgeColor} textTransform="capitalize" px={2} py={1} borderRadius="md">
-            {prompt.status}
+          <Badge colorScheme={badgeColor} px={2} py={1} borderRadius="md">
+            {statusLabel}
           </Badge>
         </HStack>
-        <Text color="gray.700">{prompt.prompt}</Text>
-        <HStack justify="flex-end">
+        <Text color="gray.700">{prompt.promptText}</Text>
+        <HStack justify="flex-end" spacing={2}>
+          <Button
+            variant="ghost"
+            colorScheme="red"
+            size="sm"
+            onClick={() => onDelete(prompt.id)}
+            isDisabled={isDeleting}
+            isLoading={isDeleting}
+          >
+            Delete
+          </Button>
           <Button colorScheme="purple" size="sm" isDisabled={!isReady}>
             View
           </Button>

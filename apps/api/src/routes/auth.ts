@@ -1,10 +1,11 @@
 import crypto from 'crypto';
-import { Router, type Request, type RequestHandler, type Response } from 'express';
+import { Router, type Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { findUserByEmail, findUserById, updateLastLogin } from '../repositories/userRepository';
 import { config } from '../config';
 import { logInfo, logError } from '../logger';
+import { csrfGuard, readSession } from '../security';
 
 const router = Router();
 
@@ -21,43 +22,6 @@ const csrfCookieOptions = {
   secure: config.env === 'production',
   maxAge: 60 * 60 * 1000
 };
-
-const csrfGuard: RequestHandler = (req, res, next) => {
-  const headerToken = req.get('x-csrf-token');
-  const cookieToken = req.cookies?.[config.csrfCookieName];
-
-  if (!headerToken || !cookieToken || headerToken !== cookieToken) {
-    logInfo('Blocked request with invalid CSRF token', { path: req.path });
-    return res.status(403).json({ message: 'Invalid CSRF token' });
-  }
-
-  return next();
-};
-
-interface SessionTokenPayload {
-  sub: string;
-  email: string;
-  iat?: number;
-  exp?: number;
-}
-
-function readSession(req: Request): SessionTokenPayload | null {
-  const token = req.cookies?.[config.sessionCookieName];
-  if (!token) {
-    return null;
-  }
-
-  try {
-    const payload = jwt.verify(token, config.sessionSecret) as SessionTokenPayload;
-    return payload;
-  } catch (error) {
-    logInfo('Invalid session token encountered', {
-      path: req.path,
-      error: error instanceof Error ? error.message : 'unknown'
-    });
-    return null;
-  }
-}
 
 function issueCsrfToken(res: Response) {
   const token = crypto.randomBytes(32).toString('hex');
