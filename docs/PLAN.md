@@ -95,40 +95,91 @@ sequenceDiagram
 
 ## Codex SDK Usage
 
-The main repository for this SDK is here: https://github.com/openai/codex/tree/main/sdk/typescript
+Rapid Prototyper depends on the official TypeScript SDK (`@openai/codex-sdk`) and wraps it with a couple of small helpers so every server process can reuse the same client, prompts, and schemas.
 
-Install 
-```bash
-npm install @openai/codex-sdk
+### Client bootstrap
+
+`apps/api/src/services/codexClient.ts` dynamically loads the SDK (so local development works without forcing the dependency until people opt in) and caches a single `Codex` instance. Configuration comes from `.env`—`OPENAI_API_KEY` is required, while `CODEX_ORG`, `CODEX_SYSTEM_PROMPT`, and `CODEX_TITLE_MODEL` are optional overrides exposed through `apps/api/src/config.ts`.
+
+```ts
+import type { Codex } from '@openai/codex-sdk';
+import { config } from '../config';
+
+let codexClient: Codex | null = null;
+
+export async function getCodexClient(): Promise<Codex> {
+  if (!config.openAiApiKey) {
+    throw new Error('Codex SDK is not configured. Set OPENAI_API_KEY.');
+  }
+
+  if (!codexClient) {
+    const { Codex: CodexConstructor } = await import('@openai/codex-sdk');
+    codexClient = new CodexConstructor({
+      apiKey: config.openAiApiKey,
+      env: config.codexOrg ? { CODEX_ORG: config.codexOrg } : undefined
+    });
+  }
+
+  return codexClient;
+}
 ```
 
-Start a thread
-```tsx
-import { Codex } from "@openai/codex-sdk";
+[Source](../apps/api/src/services/codexClient.ts)
 
-const codex = new Codex();
-const thread = codex.startThread();
-const result = await thread.run(
-  "Make a plan to diagnose and fix the CI failures"
-);
+### Prompt builds + worker loop
 
-console.log(result);
+`apps/api/src/services/codexService.ts` owns the long-running Codex thread for each prompt build. It wraps `thread.run` with a JSON Schema that forces Codex to reply with runnable JSX, strips Markdown fences, and returns the thread id so we can resume builds later. The worker at `apps/api/src/workers/codexWorker.ts` polls for pending prompts, calls this helper, compiles the JSX through Babel, and persists the compiled bundle alongside the Codex thread metadata.
+
+```ts
+const codexOutputSchema = {
+  type: 'object',
+  properties: {
+    jsx: {
+      type: 'string',
+      description: 'Complete React component code (including imports).'
+    }
+  },
+  required: ['jsx'],
+  additionalProperties: false
+} as const;
+
+export async function runPromptThroughCodex(promptText: string, threadId?: string | null) {
+  const client = await getCodexClient();
+  const thread = threadId ? client.resumeThread(threadId) : client.startThread();
+  const turn = await thread.run(buildPrompt(promptText), { outputSchema: codexOutputSchema });
+  const parsed = JSON.parse(turn.finalResponse ?? '{}');
+  const extractedJsx = extractCodeFromResponse(parsed.jsx ?? '');
+  return { threadId: thread.id, jsx: extractedJsx };
+}
 ```
 
-Call run() again to continue on the same thread, or resume a past thread by providing a threadID.
-```tsx
-// running the same thread
-const result = await thread.run("Implement the plan");
+- Service source: [apps/api/src/services/codexService.ts](../apps/api/src/services/codexService.ts)  
+- Worker loop: [apps/api/src/workers/codexWorker.ts](../apps/api/src/workers/codexWorker.ts)
 
-console.log(result);
+### Prompt title generation
 
-// resuming past thread
+Before each prompt is persisted, the API asks Codex mini for a concise title by spinning up a short-lived thread with custom model options. If Codex is unavailable we fall back to a deterministic truncation so the UI always has something to display.
 
-const thread2 = codex.resumeThread(threadId);
-const result2 = await thread.run("Pick up where you left off");
+```ts
+const TITLE_THREAD_OPTIONS: ThreadOptions = {
+  model: config.codexTitleModel,
+  modelReasoningEffort: 'low',
+  skipGitRepoCheck: true
+};
 
-console.log(result2);
+export async function generatePromptTitle(promptText: string): Promise<string> {
+  if (!isCodexConfigured()) {
+    return fallbackTitle(promptText);
+  }
+
+  const client = await getCodexClient();
+  const thread = client.startThread(TITLE_THREAD_OPTIONS);
+  const turn = await thread.run(buildTitlePrompt(promptText), { outputSchema: TITLE_OUTPUT_SCHEMA });
+  return parseTitleResponse(turn.finalResponse ?? '') ?? fallbackTitle(promptText);
+}
 ```
+
+[Source](../apps/api/src/services/titleGenerator.ts)
 
 ## Data Model (initial)
 - **users**: id (uuid), email (unique), password_hash, created_at, updated_at, last_login_at.
