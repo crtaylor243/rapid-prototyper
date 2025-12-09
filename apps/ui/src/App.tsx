@@ -13,6 +13,7 @@ import {
   Heading,
   HStack,
   Input,
+  Icon,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -339,48 +340,50 @@ function LoginPage() {
   }
 
   return (
-    <Container maxW="sm" py={24}>
-      <Box borderWidth="1px" borderRadius="lg" p={8} boxShadow="lg">
-        <VStack spacing={6} align="stretch">
-          <Heading size="lg" textAlign="center">
-            Rapid Prototyper Login
-          </Heading>
-          <form onSubmit={handleSubmit}>
-            <VStack spacing={4} align="stretch">
-              <FormControl id="email">
-                <FormLabel>Email address</FormLabel>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@example.com"
-                  required
-                />
-              </FormControl>
-              <FormControl id="password">
-                <FormLabel>Password</FormLabel>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="•••••••"
-                  required
-                />
-              </FormControl>
-              {error ? (
-                <Alert status="error">
-                  <AlertIcon />
-                  {error}
-                </Alert>
-              ) : null}
-              <Button type="submit" colorScheme="purple" isLoading={isSubmitting} loadingText="Signing in">
-                Sign In
-              </Button>
-            </VStack>
-          </form>
-        </VStack>
-      </Box>
-    </Container>
+    <Box minH="100vh" bgGradient="linear(to-br, purple.50, blue.50)" py={24}>
+      <Container maxW="sm">
+        <Box borderWidth="1px" borderRadius="lg" p={8} boxShadow="lg" bg="whiteAlpha.900">
+          <VStack spacing={6} align="stretch">
+            <Heading size="lg" textAlign="center">
+              Rapid Prototyper Login
+            </Heading>
+            <form onSubmit={handleSubmit}>
+              <VStack spacing={4} align="stretch">
+                <FormControl id="email">
+                  <FormLabel>Email address</FormLabel>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="admin@example.com"
+                    required
+                  />
+                </FormControl>
+                <FormControl id="password">
+                  <FormLabel>Password</FormLabel>
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="•••••••"
+                    required
+                  />
+                </FormControl>
+                {error ? (
+                  <Alert status="error">
+                    <AlertIcon />
+                    {error}
+                  </Alert>
+                ) : null}
+                <Button type="submit" colorScheme="purple" isLoading={isSubmitting} loadingText="Signing in">
+                  Sign In
+                </Button>
+              </VStack>
+            </form>
+          </VStack>
+        </Box>
+      </Container>
+    </Box>
   );
 }
 
@@ -569,7 +572,7 @@ function DashboardPage() {
   };
 
   return (
-    <>
+    <Box minH="100vh" bgGradient="linear(to-br, purple.50, blue.50)">
       <AppHeader user={user} onLogout={handleLogout} isLoggingOut={isLoggingOut} />
       <Container maxW="4xl" py={12}>
         <Stack spacing={10}>
@@ -580,7 +583,15 @@ function DashboardPage() {
             </Alert>
           </Stack>
 
-          <Box as="form" onSubmit={handlePromptSubmit} borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm">
+          <Box
+            as="form"
+            onSubmit={handlePromptSubmit}
+            borderWidth="1px"
+            borderRadius="lg"
+            p={6}
+            boxShadow="sm"
+            bg="white"
+          >
             <VStack spacing={4} align="stretch">
               <FormControl>
                 <FormLabel textTransform="uppercase" fontSize="sm" letterSpacing="wide">
@@ -630,7 +641,7 @@ function DashboardPage() {
                   <Spinner />
                 </Center>
               ) : sortedPrompts.length === 0 ? (
-                <Box borderWidth="1px" borderRadius="md" p={6} textAlign="center" color="gray.500">
+                <Box borderWidth="1px" borderRadius="md" p={6} textAlign="center" color="gray.500" bg="white">
                   No prompts yet. Describe your prototype to get started.
                 </Box>
               ) : (
@@ -648,7 +659,7 @@ function DashboardPage() {
           </Stack>
         </Stack>
       </Container>
-    </>
+    </Box>
   );
 }
 
@@ -667,9 +678,12 @@ function AppHeader({
     <Box borderBottomWidth="1px" bg="gray.50">
       <Container maxW="6xl">
         <HStack justify="space-between" py={2}>
-          <Heading size="sm" letterSpacing="wide">
-            Rapid Prototyper
-          </Heading>
+          <HStack spacing={2} align="center">
+            <OpenAIIcon boxSize={7} color="black" />
+            <Heading size="sm" letterSpacing="wide">
+              Rapid Prototyper
+            </Heading>
+          </HStack>
           <HStack spacing={3} align="center">
             <Box
               w="32px"
@@ -783,6 +797,17 @@ function CodexGlyph({ animated = false }: { animated?: boolean }) {
   );
 }
 
+function OpenAIIcon(props: React.ComponentProps<typeof Icon>) {
+  return (
+    <Icon viewBox="0 0 156 154" {...props}>
+      <path
+        d="M59.7325 56.1915V41.6219C59.7325 40.3948 60.1929 39.4741 61.266 38.8613L90.5592 21.9915C94.5469 19.6912 99.3013 18.6181 104.208 18.6181C122.612 18.6181 134.268 32.8813 134.268 48.0637C134.268 49.1369 134.268 50.364 134.114 51.5911L103.748 33.8005C101.908 32.7274 100.067 32.7274 98.2267 33.8005L59.7325 56.1915ZM128.133 112.937V78.1222C128.133 75.9745 127.212 74.441 125.372 73.3678L86.878 50.9768L99.4538 43.7682C100.527 43.1554 101.448 43.1554 102.521 43.7682L131.814 60.6381C140.25 65.5464 145.923 75.9745 145.923 86.0961C145.923 97.7512 139.023 108.487 128.133 112.935V112.937ZM50.6841 82.2638L38.1083 74.9028C37.0351 74.29 36.5748 73.3693 36.5748 72.1422V38.4025C36.5748 21.9929 49.1506 9.5696 66.1744 9.5696C72.6162 9.5696 78.5962 11.7174 83.6585 15.5511L53.4461 33.0352C51.6062 34.1084 50.6855 35.6419 50.6855 37.7897V82.2653L50.6841 82.2638ZM77.7533 97.9066L59.7325 87.785V66.3146L77.7533 56.193L95.7725 66.3146V87.785L77.7533 97.9066ZM89.3321 144.53C82.8903 144.53 76.9103 142.382 71.848 138.549L102.06 121.064C103.9 119.991 104.821 118.458 104.821 116.31V71.8343L117.551 79.1954C118.624 79.8082 119.084 80.7289 119.084 81.956V115.696C119.084 132.105 106.354 144.529 89.3321 144.529V144.53ZM52.9843 110.33L23.6911 93.4601C15.2554 88.5517 9.58181 78.1237 9.58181 68.0021C9.58181 56.193 16.6365 45.611 27.5248 41.163V76.1299C27.5248 78.2776 28.4455 79.8111 30.2854 80.8843L68.6271 103.121L56.0513 110.33C54.9781 110.943 54.0574 110.943 52.9843 110.33ZM51.2983 135.482C33.9681 135.482 21.2384 122.445 21.2384 106.342C21.2384 105.115 21.3923 103.888 21.5448 102.661L51.7572 120.145C53.5971 121.218 55.4385 121.218 57.2784 120.145L95.7725 97.9081V112.478C95.7725 113.705 95.3122 114.625 94.239 115.238L64.9458 132.108C60.9582 134.408 56.2037 135.482 51.2969 135.482H51.2983ZM89.3321 153.731C107.889 153.731 123.378 140.542 126.907 123.058C144.083 118.61 155.126 102.507 155.126 86.0976C155.126 75.3617 150.525 64.9336 142.243 57.4186C143.01 54.1977 143.471 50.9768 143.471 47.7573C143.471 25.8267 125.68 9.41567 105.129 9.41567C100.989 9.41567 97.0011 10.0285 93.0134 11.4095C86.1112 4.66126 76.6024 0.367188 66.1744 0.367188C47.6171 0.367188 32.1282 13.5558 28.5994 31.0399C11.4232 35.4879 0.380859 51.5911 0.380859 68.0006C0.380859 78.7365 4.98133 89.1645 13.2631 96.6795C12.4963 99.9004 12.036 103.121 12.036 106.341C12.036 128.271 29.8265 144.682 50.3777 144.682C54.5178 144.682 58.5055 144.07 62.4931 142.689C69.3938 149.437 78.9026 153.731 89.3321 153.731Z"
+        fill="black"
+      />
+    </Icon>
+  );
+}
+
 function PromptEventList({
   events,
   emptyLabel
@@ -835,7 +860,7 @@ function PromptCard({
     : 'View details; preview unlocks once the worker marks this prompt Ready';
 
   return (
-    <Box borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm">
+    <Box borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm" bg="white">
       <Stack spacing={4}>
         <HStack justify="space-between" align="flex-start">
           <VStack spacing={0} align="flex-start">
