@@ -466,10 +466,6 @@ function DashboardPage() {
     [navigate]
   );
 
-  const lastLoginText = user?.lastLoginAt
-    ? new Date(user.lastLoginAt).toLocaleString()
-    : 'First login pending';
-
   const sortedPrompts = useMemo(
     () => [...prompts].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
     [prompts]
@@ -576,13 +572,6 @@ function DashboardPage() {
       <AppHeader user={user} onLogout={handleLogout} isLoggingOut={isLoggingOut} />
       <Container maxW="4xl" py={12}>
         <Stack spacing={10}>
-          <Stack spacing={3}>
-            <Alert status="success">
-              <AlertIcon />
-              Logged in as {user?.email} — last login {lastLoginText}
-            </Alert>
-          </Stack>
-
           <Box
             as="form"
             onSubmit={handlePromptSubmit}
@@ -606,7 +595,7 @@ function DashboardPage() {
               </FormControl>
               <HStack justify="space-between">
                 <Text fontSize="sm" color="gray.500">
-                  Codex will generate UI code for each submitted description.
+                  Codex will create your idea in real-time!
                 </Text>
                 <Button
                   type="submit"
@@ -615,7 +604,7 @@ function DashboardPage() {
                   loadingText="Submitting"
                   isDisabled={!promptText.trim()}
                 >
-                  Submit Prompt
+                  ⚙️ Start Building!
                 </Button>
               </HStack>
             </VStack>
@@ -623,7 +612,7 @@ function DashboardPage() {
 
           <Stack spacing={4}>
             <HStack justify="space-between">
-              <Heading size="md">Prompt history</Heading>
+              <Heading size="md">Prototypes</Heading>
               <Text fontSize="sm" color="gray.500">
                 Showing newest first
               </Text>
@@ -872,19 +861,13 @@ function PromptCard({
           <PromptStatusBadge status={prompt.status} />
         </HStack>
         <Text color="gray.700">{prompt.promptText}</Text>
-        <Box borderWidth="1px" borderRadius="md" p={3} bg="gray.50">
-          <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="wide" mb={1}>
-            Codex activity
-          </Text>
-          <PromptEventList events={prompt.events} emptyLabel="Waiting for Codex worker updates…" />
-        </Box>
         {prompt.renderError ? (
           <Alert status="error" variant="left-accent">
             <AlertIcon />
             {prompt.renderError}
           </Alert>
         ) : null}
-        <HStack justify="flex-end" spacing={2}>
+        <HStack justify="space-between" spacing={2}>
           <Button
             variant="ghost"
             colorScheme="red"
