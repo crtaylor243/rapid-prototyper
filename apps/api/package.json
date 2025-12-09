@@ -12,9 +12,14 @@
     "seed:run": "knex --knexfile knexfile.cjs seed:run",
     "lint": "tsc --noEmit",
     "test": "cross-env NODE_ENV=test ts-node --project tsconfig.json tests/userRepository.test.ts && cross-env NODE_ENV=test ts-node --project tsconfig.json tests/promptRepository.test.ts",
-    "user:create": "ts-node --project tsconfig.json src/scripts/createUser.ts"
+    "user:create": "ts-node --project tsconfig.json src/scripts/createUser.ts",
+    "worker": "ts-node-dev --respawn --transpile-only src/workers/codexWorker.ts",
+    "worker:once": "ts-node --project tsconfig.json src/workers/codexWorker.ts"
   },
   "dependencies": {
+    "@babel/core": "^7.28.5",
+    "@babel/preset-react": "^7.28.5",
+    "@openai/codex-sdk": "^0.66.0",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",

@@ -192,13 +192,14 @@ Each iteration is a vertical slice that results in a reviewable, running system.
 - Implemented `/prompts` REST endpoints (list, create, delete) with CSRF + auth guards and a deterministic title generator (simple truncation for now).
 - Wired the React dashboard to load prompts from the API, submit new ones, and delete entries; Chakra cards now reflect real DB state and show error/loading states.
 
-### Iteration 3 — Codex Orchestration & Dynamic Bundling
-- Integrate the Codex SDK service that can start/resume threads, persist task metadata, and store returned JSX safely.
-- Build the background worker that polls Codex, feeds completed JSX through Babel, captures transpilation errors, and stores the compiled JS + metadata in PostgreSQL.
-- Harden the preview storage format (e.g., sanitized HTML/JS blobs, sandbox configs) and expose worker health metrics/logs.
-- Protect secrets via dotenv + `.env.sample` instructions and ensure failures are logged in the optional events table.
+### Iteration 3 — Codex Orchestration & Dynamic Bundling ✅ Completed
+- Codex SDK service issues/ resumes threads per prompt, stores the task ID, and persists the structured JSX output for later preview work.
+- Background worker polls pending prompts, compiles JSX to sandboxed JS with Babel, handles failures, and saves the compiled artifact + sandbox config metadata in Postgres.
+- Prompt events and logs record build progress/failures, giving enough telemetry to debug Codex runs even without a UI preview surface yet.
+- README/.env guidance captures Codex/Babel secrets so local stacks can run the worker without exposing credentials.
 
-### Iteration 4 — Preview & Launch Experience
+### Iteration 4 — Preview & Launch Experience (Not started)
+- Status: Deferred until we prioritize preview/launch UX again; Ready badges currently indicate stored JSX artifacts only.
 - Enhance the prompt cards with progress badges, Codex logs, and actionable “View” buttons once `status=ready`.
 - Add Babel standalone compilation in the UI to render returned React components safely in a sandboxed iframe/modal.
 - Provide a detail view with the preview, prompt summary, generated title, timestamps, and a “Back to history” CTA.
