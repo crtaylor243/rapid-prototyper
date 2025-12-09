@@ -98,12 +98,12 @@ sequenceDiagram
 The main repository for this SDK is here: https://github.com/openai/codex/tree/main/sdk/typescript
 
 Install 
-```
+```bash
 npm install @openai/codex-sdk
 ```
 
 Start a thread
-```
+```tsx
 import { Codex } from "@openai/codex-sdk";
 
 const codex = new Codex();
@@ -116,7 +116,7 @@ console.log(result);
 ```
 
 Call run() again to continue on the same thread, or resume a past thread by providing a threadID.
-```
+```tsx
 // running the same thread
 const result = await thread.run("Implement the plan");
 
