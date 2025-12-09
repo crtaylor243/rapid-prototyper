@@ -345,7 +345,7 @@ function LoginPage() {
         <Box borderWidth="1px" borderRadius="lg" p={8} boxShadow="lg" bg="whiteAlpha.900">
           <VStack spacing={6} align="stretch">
             <Heading size="lg" textAlign="center">
-              Rapid Prototyper Login
+              Rapid Prototyper
             </Heading>
             <form onSubmit={handleSubmit}>
               <VStack spacing={4} align="stretch">
@@ -392,6 +392,7 @@ function DashboardPage() {
   const { handleLogout, isLoggingOut } = useLogoutAction();
   const [promptText, setPromptText] = useState('');
   const [isSubmittingPrompt, setIsSubmittingPrompt] = useState(false);
+  const [isSummarizingPrompt, setIsSummarizingPrompt] = useState(false);
   const [prompts, setPrompts] = useState<PromptSummary[]>([]);
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(true);
   const [promptLoadError, setPromptLoadError] = useState<string | null>(null);
@@ -478,6 +479,7 @@ function DashboardPage() {
     }
 
     setIsSubmittingPrompt(true);
+    setIsSummarizingPrompt(true);
     try {
       const csrf = await getCsrfToken();
       const response = await fetch(`${API_BASE_URL}/prompts`, {
@@ -521,6 +523,7 @@ function DashboardPage() {
       });
     } finally {
       setIsSubmittingPrompt(false);
+      setIsSummarizingPrompt(false);
     }
   };
 
@@ -601,7 +604,7 @@ function DashboardPage() {
                   type="submit"
                   colorScheme="purple"
                   isLoading={isSubmittingPrompt}
-                  loadingText="Submitting"
+                  loadingText="Understanding Prototype"
                   isDisabled={!promptText.trim()}
                 >
                   ⚙️ Start Building!
@@ -625,6 +628,7 @@ function DashboardPage() {
                   {promptLoadError}
                 </Alert>
               ) : null}
+              {isSummarizingPrompt ? <PromptUnderstandingCard /> : null}
               {isLoadingPrompts ? (
                 <Center py={8}>
                   <Spinner />
@@ -832,6 +836,22 @@ function PromptEventList({
   );
 }
 
+function PromptUnderstandingCard() {
+  return (
+    <Box borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm" bg="white">
+      <HStack spacing={4} align="center">
+        <Spinner color="purple.500" size="sm" />
+        <VStack spacing={1} align="flex-start">
+          <Text fontWeight="semibold">Understanding Prototype</Text>
+          <Text fontSize="sm" color="gray.500">
+            Codex mini is summarizing your idea into a short title.
+          </Text>
+        </VStack>
+      </HStack>
+    </Box>
+  );
+}
+
 function PromptCard({
   prompt,
   onDelete,
@@ -896,7 +916,6 @@ function PromptDetailPage() {
   const [prompt, setPrompt] = useState<PromptDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadPrompt = useCallback(
     async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -965,26 +984,14 @@ function PromptDetailPage() {
     };
   }, [promptId, loadPrompt]);
 
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await loadPrompt({ silent: true });
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [loadPrompt]);
-
   return (
     <>
       <AppHeader user={user} onLogout={handleLogout} isLoggingOut={isLoggingOut} />
       <Container maxW="5xl" py={12}>
         <Stack spacing={6}>
-          <HStack justify="space-between" align="center">
+          <HStack justify="flex-start" align="center">
             <Button variant="link" as={RouterLink} to="/" colorScheme="purple">
-              Back to history
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleRefresh} isLoading={isRefreshing}>
-              Refresh status
+              ← Back
             </Button>
           </HStack>
           {isLoading ? (
@@ -999,31 +1006,22 @@ function PromptDetailPage() {
           ) : prompt ? (
             <Stack spacing={6}>
               <Box borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm">
-                <Stack spacing={4}>
-                  <HStack justify="space-between" align="flex-start">
-                    <Heading size="lg">{prompt.title}</Heading>
-                    <PromptStatusBadge status={prompt.status} />
-                  </HStack>
-                  <Text fontSize="sm" color="gray.500">
-                    Prompt ID: <Code>{prompt.id}</Code>
-                  </Text>
-                  <Text fontSize="sm" color="gray.500">
-                    Created {new Date(prompt.createdAt).toLocaleString()} · Updated{' '}
-                    {new Date(prompt.updatedAt).toLocaleString()}
-                  </Text>
-                  <Divider />
+                <Stack spacing={5}>
+                  <Stack spacing={1}>
+                    <HStack justify="space-between" align="flex-start">
+                      <Heading size="lg">{prompt.title}</Heading>
+                      <PromptStatusBadge status={prompt.status} />
+                    </HStack>
+                    <Text fontSize="sm" color="gray.500">
+                      Created {new Date(prompt.createdAt).toLocaleString()} · Updated{' '}
+                      {new Date(prompt.updatedAt).toLocaleString()}
+                    </Text>
+                  </Stack>
                   <Stack spacing={2}>
                     <Text fontSize="sm" color="gray.500" textTransform="uppercase" letterSpacing="wide">
                       Prompt
                     </Text>
                     <Text color="gray.700">{prompt.promptText}</Text>
-                  </Stack>
-                  <Divider />
-                  <Stack spacing={1}>
-                    <Text fontSize="sm" color="gray.500" textTransform="uppercase" letterSpacing="wide">
-                      Preview slug
-                    </Text>
-                    <Code>{prompt.previewSlug ?? 'pending-assignment'}</Code>
                   </Stack>
                   {prompt.renderError ? (
                     <Alert status="error" variant="left-accent">
@@ -1031,18 +1029,31 @@ function PromptDetailPage() {
                       {prompt.renderError}
                     </Alert>
                   ) : null}
+                  <Divider />
+                  <PromptPreviewPanel prompt={prompt} />
                 </Stack>
               </Box>
 
               <Box borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm">
-                <Stack spacing={3}>
-                  <Heading size="sm">Latest Codex events</Heading>
-                  <PromptEventList events={prompt.events} emptyLabel="No Codex activity recorded yet." />
+                <Stack spacing={4}>
+                  <Stack spacing={1}>
+                    <Text fontSize="sm" color="gray.500" textTransform="uppercase" letterSpacing="wide">
+                      Prompt ID
+                    </Text>
+                    <Code>{prompt.id}</Code>
+                  </Stack>
+                  <Stack spacing={1}>
+                    <Text fontSize="sm" color="gray.500" textTransform="uppercase" letterSpacing="wide">
+                      Preview slug
+                    </Text>
+                    <Code>{prompt.previewSlug ?? 'pending-assignment'}</Code>
+                  </Stack>
+                  <Divider />
+                  <Stack spacing={3}>
+                    <Heading size="sm">Codex log</Heading>
+                    <PromptEventList events={prompt.events} emptyLabel="No Codex activity recorded yet." />
+                  </Stack>
                 </Stack>
-              </Box>
-
-              <Box borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm">
-                <PromptPreviewPanel prompt={prompt} />
               </Box>
             </Stack>
           ) : null}
@@ -1056,7 +1067,7 @@ function PromptPreviewPanel({ prompt }: { prompt: PromptDetail }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const canLaunchPreview = prompt.status === 'ready' && !!prompt.jsxSource;
   const helperText = canLaunchPreview
-    ? `Preview slug: ${prompt.previewSlug ?? 'not-set'}`
+    ? 'Preview is ready to launch.'
     : 'Preview becomes available when Codex finishes building.';
 
   return (
@@ -1100,7 +1111,7 @@ function PromptPreviewModal({
     <Modal size="6xl" isOpen={isOpen} onClose={onClose} isCentered>
       <ModalOverlay />
       <ModalContent>
-        <ModalHeader>{title} preview</ModalHeader>
+        <ModalHeader>Preview</ModalHeader>
         <ModalCloseButton />
         <ModalBody minH="360px">
           {jsxSource ? (

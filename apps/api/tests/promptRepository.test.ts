@@ -28,10 +28,11 @@ async function shouldCreateAndDeletePrompt() {
   assert(admin, 'Seeded admin user should exist');
 
   const promptText = 'Compose a notifications center with unread badges';
+  const title = await generatePromptTitle(promptText);
   const created = await createPrompt({
     userId: admin.id,
     promptText,
-    title: generatePromptTitle(promptText)
+    title
   });
 
   assert.equal(created.prompt_text, promptText, 'Prompt text should be stored as provided');

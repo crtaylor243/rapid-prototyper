@@ -93,10 +93,11 @@ router.post('/', requireAuth, csrfGuard, async (req, res) => {
   }
 
   try {
+    const title = await generatePromptTitle(promptText);
     const prompt = await createPrompt({
       userId: req.user!.id,
       promptText,
-      title: generatePromptTitle(promptText)
+      title
     });
     logInfo('Prompt created', { promptId: prompt.id, userId: req.user!.id });
     res.status(201).json({ prompt: serializePrompt(prompt) });
