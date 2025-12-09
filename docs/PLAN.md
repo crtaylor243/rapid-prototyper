@@ -203,9 +203,3 @@ Each iteration is a vertical slice that results in a reviewable, running system.
 - The UI includes a detail route that renders Codex JSX via Babel standalone inside a sandboxed Chakra modal, with an error boundary to catch runtime issues.
 - Polling runs on dashboard and detail views so cards and Codex Activity stay in sync with the worker without manual reloads.
 - Worker loop is hardened to survive tick errors; preview rendering now supports common React hooks (e.g., `useMemo`).
-
-### Iteration 5 — Operations, Observability & AI Assist
-- Instrument API and worker logs/metrics (e.g., OpenTelemetry exporters) plus alerting hooks for failed builds.
-- Add feature flags for Codex interactions so environments can toggle external calls and Babel rendering experiments.
-- Document AI + human handoffs, including fallbacks when Codex fails or when Babel transpilation errors block previews.
-- Polish UX (empty states, retry buttons) and finalize the presentation outline for stakeholder demos.

@@ -1,11 +1,29 @@
+# Environment & secrets
 .env*
 !.env.sample
+
+# Dependencies
 node_modules
+/apps/api/node_modules
+/apps/ui/node_modules
+
+# Build outputs
 dist
-coverage
 /apps/api/dist
 /apps/ui/dist
-/apps/ui/node_modules
-/apps/api/node_modules
 /apps/ui/.vite
+
+# Logs & coverage
 .logs/
+coverage
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Tooling / caches
+*.tsbuildinfo
+.DS_Store
+.vscode/
+.idea/
