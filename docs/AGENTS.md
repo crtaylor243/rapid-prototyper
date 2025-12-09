@@ -23,13 +23,13 @@ This matrix captures the key agents (AI copilots or human owners) that execute t
 - **Iterations**: Iteration 2 (Prompt Submission & History).
 - **Inputs**: Authenticated API/UI shell, DB access, prompt schema definition.
 - **Responsibilities**: Build `/prompts` endpoints, UI forms/cards, title generation service (mock or real), and worker metadata for Codex tasks while ensuring tests cover persistence and history retrieval.
-- **Outputs/Handoffs**: Prompt CRUD contracts, sample payloads/fixtures, and UI elements ready for Codex/GitHub wiring.
+- **Outputs/Handoffs**: Prompt CRUD contracts, sample payloads/fixtures, and UI elements ready for Codex/Babel wiring.
 
-## Codex & GitHub Automation Agent
+## Codex Orchestration Agent
 - **Iterations**: Iteration 3.
-- **Inputs**: Prompt workflow data, Codex SDK credentials, GitHub App secrets, CI pipeline hooks.
-- **Responsibilities**: Integrate Codex SDK thread lifecycle, manage GitHub branch/PR automation, orchestrate background workers that poll Codex and GitHub Actions, and store deployment URLs + failure logs.
-- **Outputs/Handoffs**: Worker services, credential management guides, feature flags or toggles for external calls, and telemetry hooks for downstream UI rendering.
+- **Inputs**: Prompt workflow data, Codex SDK credentials, Babel runtime configuration.
+- **Responsibilities**: Integrate Codex SDK thread lifecycle, orchestrate background workers that poll Codex, run Babel transpilation, capture errors, and persist compiled JS blobs + metadata for previews.
+- **Outputs/Handoffs**: Worker services, credential management guides, feature flags or toggles for Codex/Babel usage, and telemetry hooks for downstream UI rendering.
 
 ## Preview Experience Agent
 - **Iterations**: Iteration 4.
